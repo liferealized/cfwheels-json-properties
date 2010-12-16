@@ -54,12 +54,17 @@
 	<cffunction name="$deserializeJSONProperties" output="false" access="public" returntype="boolean">
 		<cfscript>
 			var loc = {};
-			for (loc.item in variables.wheels.class.jsonProperties)
+			if (IsInstance())
 			{
-				if (!StructKeyExists(this, loc.item))
-					this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item]);
-				if (StructIsEmpty(arguments) and IsSimpleValue(this[loc.item]))
-					this[loc.item] = DeserializeJSON(this[loc.item]);
+				for (loc.item in variables.wheels.class.jsonProperties)
+				{
+					if (!StructKeyExists(this, loc.item))
+						this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item]);
+					if (IsSimpleValue(this[loc.item]) && Len(this[loc.item]) && IsJSON(this[loc.item]))
+						this[loc.item] = DeserializeJSON(this[loc.item]);
+					else
+						this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item]);
+				}
 			}
 		</cfscript>
 		<cfreturn true />
@@ -94,6 +99,19 @@
 		</cfscript>
 		<cfreturn loc.returnValue />
 	</cffunction>
+	
+	<cffunction name="$convertToString" returntype="string" access="public" output="false">
+		<cfargument name="value" type="Any" required="true">
+		<cfscript>
+			if (IsBinary(arguments.value))
+				return ToString(arguments.value);
+			else if (IsDate(arguments.value))
+				return CreateDateTime(year(arguments.value), month(arguments.value), day(arguments.value), hour(arguments.value), minute(arguments.value), second(arguments.value));
+			else if (IsArray(arguments.value) || IsStruct(arguments.value))
+				return SerializeJSON(arguments.value);
+		</cfscript>
+		<cfreturn arguments.value>
+	</cffunction>	
 
 </cfcomponent>
 
