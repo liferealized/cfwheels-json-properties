@@ -1,0 +1,3 @@
+[submodule "gzip"]
+	path = gzip
+	url = git@github.com:liferealized/cf-gzip.git
