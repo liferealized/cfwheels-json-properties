@@ -6,17 +6,26 @@
 	</cffunction>
 	
 	<cffunction name="jsonProperty" output="false" access="public" returntype="void">
-		<cfargument name="property" type="string" required="true" />
+		<cfargument name="properties" type="string" required="false" default="" />
 		<cfargument name="type" type="string" required="false" default="array" hint="The JSON type may be set to `array` or `struct`. The default is `array`. All other values will be ignored." />
+		<cfargument name="gzip" type="boolean" required="false" default="false" />
 		<cfscript>
 			var loc = {};
 			
 			if (!StructKeyExists(variables.wheels.class, "jsonProperties"))
 				variables.wheels.class.jsonProperties = {};
-				
-			variables.wheels.class.jsonProperties[arguments.property] = arguments.type;
+
+			if (!StructKeyExists(variables.wheels.class, "gzip"))
+				variables.wheels.class.gzip = CreateObject("component", "plugins.jsonproperties.gzip.Gzip").init();
+			
+			if (StructKeyExists(arguments, "property"))
+				arguments.properties = arguments.property;
+
+			for (loc.property in listToArray(arguments.properties))
+				variables.wheels.class.jsonProperties[loc.property] = { type = arguments.type, gzip = arguments.gzip };
 			
 			afterFind(method="$deserializeJSONProperties");
+			afterInitialization(method="$deserializeJSONProperties");
 			afterSave(method="$deserializeJSONProperties");
 			beforeValidation(method="$serializeJSONProperties");
 			beforeDelete(method="$serializeJSONProperties");
@@ -43,9 +52,14 @@
 			for (loc.item in variables.wheels.class.jsonProperties)
 			{
 				if (!StructKeyExists(this, loc.item))
-					this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item]);
+					this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item].type);
 				if (!IsSimpleValue(this[loc.item]))
+				{
 					this[loc.item] = SerializeJSON(this[loc.item]);
+					
+					if (variables.wheels.class.jsonProperties[loc.item].gzip)
+						this[loc.item] = variables.wheels.class.gzip.deflate(this[loc.item]);
+				}
 			}
 		</cfscript>
 		<cfreturn true />
@@ -53,17 +67,24 @@
 	
 	<cffunction name="$deserializeJSONProperties" output="false" access="public" returntype="boolean">
 		<cfscript>
-			var loc = {};
+			var loc = { connectionArgs = this.$hashedConnectionArgs() };
+
+			if (isNew() and (!StructKeyExists(request.wheels.transactions, loc.connectionArgs) or !request.wheels.transactions[loc.connectionArgs])) 
+				return true;
+
 			if (IsInstance())
 			{
 				for (loc.item in variables.wheels.class.jsonProperties)
 				{
+
 					if (!StructKeyExists(this, loc.item))
-						this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item]);
+						this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item].type);
+
+					if (variables.wheels.class.jsonProperties[loc.item].gzip and IsBinary(this[loc.item]))
+						this[loc.item] = variables.wheels.class.gzip.inflate(this[loc.item]);
+
 					if (IsSimpleValue(this[loc.item]) && Len(this[loc.item]) && IsJSON(this[loc.item]))
 						this[loc.item] = DeserializeJSON(this[loc.item]);
-					else
-						this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item]);
 				}
 			}
 		</cfscript>
