@@ -8,6 +8,7 @@
 	<cffunction name="jsonProperty" output="false" access="public" returntype="void">
 		<cfargument name="properties" type="string" required="false" default="" />
 		<cfargument name="type" type="string" required="false" default="array" hint="The JSON type may be set to `array` or `struct`. The default is `array`. All other values will be ignored." />
+		<cfargument name="pack" type="boolean" required="false" default="false" hint="If you are storing homoginized query like data set pack to `true`." />
 		<cfargument name="gzip" type="boolean" required="false" default="false" />
 		<cfscript>
 			var loc = {};
@@ -17,12 +18,15 @@
 
 			if (!StructKeyExists(variables.wheels.class, "gzip"))
 				variables.wheels.class.gzip = CreateObject("component", "plugins.jsonproperties.gzip.Gzip").init();
+
+			if (!StructKeyExists(variables.wheels.class, "jsonh"))
+				variables.wheels.class.jsonh = CreateObject("component", "plugins.jsonproperties.jsonh.jsonh").init();
 			
 			if (StructKeyExists(arguments, "property"))
 				arguments.properties = arguments.property;
 
 			for (loc.property in listToArray(arguments.properties))
-				variables.wheels.class.jsonProperties[loc.property] = { type = arguments.type, gzip = arguments.gzip };
+				variables.wheels.class.jsonProperties[loc.property] = { type = arguments.type, pack = arguments.pack, gzip = arguments.gzip };
 			
 			afterFind(method="$deserializeJSONProperties");
 			afterInitialization(method="$deserializeJSONProperties");
@@ -53,9 +57,16 @@
 			{
 				if (!StructKeyExists(this, loc.item))
 					this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item].type);
-				if (!IsSimpleValue(this[loc.item]))
+				if (!IsSimpleValue(this[loc.item]) and !IsBinary(this[loc.item]))
 				{
-					this[loc.item] = SerializeJSON(this[loc.item]);
+					if (variables.wheels.class.jsonProperties[loc.item].pack)
+					{
+						this[loc.item] = variables.wheels.class.jsonh.serialize(this[loc.item]);
+					}
+					else
+					{
+						this[loc.item] = SerializeJSON(this[loc.item]);
+					}
 					
 					if (variables.wheels.class.jsonProperties[loc.item].gzip)
 						this[loc.item] = variables.wheels.class.gzip.deflate(this[loc.item]);
@@ -80,10 +91,13 @@
 					if (!StructKeyExists(this, loc.item))
 						this[loc.item] = $setDefaultObject(type=variables.wheels.class.jsonProperties[loc.item].type);
 
-					if (variables.wheels.class.jsonProperties[loc.item].gzip and IsBinary(this[loc.item]))
+					if (variables.wheels.class.jsonProperties[loc.item].gzip and isBinary(this[loc.item]))
 						this[loc.item] = variables.wheels.class.gzip.inflate(this[loc.item]);
 
-					if (IsSimpleValue(this[loc.item]) && Len(this[loc.item]) && IsJSON(this[loc.item]))
+					if (variables.wheels.class.jsonProperties[loc.item].pack and IsSimpleValue(this[loc.item]) and Len(this[loc.item]) and isJSON(this[loc.item]))
+						this[loc.item] = variables.wheels.class.jsonh.deserialize(this[loc.item]);
+
+					if (IsSimpleValue(this[loc.item]) and Len(this[loc.item]) and isJSON(this[loc.item]))
 						this[loc.item] = DeserializeJSON(this[loc.item]);
 				}
 			}
