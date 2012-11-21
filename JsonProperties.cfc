@@ -16,10 +16,10 @@
 			if (!StructKeyExists(variables.wheels.class, "jsonProperties"))
 				variables.wheels.class.jsonProperties = {};
 
-			if (!StructKeyExists(variables.wheels.class, "gzip"))
+			if (!StructKeyExists(variables.wheels.class, "gzip") and arguments.gzip)
 				variables.wheels.class.gzip = CreateObject("component", "plugins.jsonproperties.gzip.Gzip").init();
 
-			if (!StructKeyExists(variables.wheels.class, "jsonh"))
+			if (!StructKeyExists(variables.wheels.class, "jsonh") and arguments.pack)
 				variables.wheels.class.jsonh = CreateObject("component", "plugins.jsonproperties.jsonh.jsonh").init();
 			
 			if (StructKeyExists(arguments, "property"))
